@@ -1,0 +1,58 @@
+<launch>
+  <!-- These are the arguments you can pass this launch file, for example paused:=true -->
+  <arg name="debug" default="false"/>
+  <arg name="gui" default="true"/>
+  <arg name="paused" default="true"/>
+  <arg name="use_sim_time" default="true"/>
+  <arg name="headless" default="false"/>
+  <!-- <arg name="model" default="$(find cmg_robot_description)/urdf/robot_body_roll.urdf" /> -->
+  
+  <!-- We resume the logic in empty_world.launch, changing only the name of the world to be launched -->
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="world_name" value="$(find cmg_robot_gazebo)/worlds/empty.world"/>
+    <arg name="debug" value="$(arg debug)" />
+    <arg name="gui" value="$(arg gui)" />
+    <arg name="paused" value="$(arg paused)"/>
+    <arg name="use_sim_time" value="$(arg use_sim_time)"/>
+    <arg name="headless" value="$(arg headless)"/>
+  </include>
+
+  <!-- Load the URDF into ROS parameter server -->
+  <param name="robot_description" textfile="$(find cmg_robot_description)/urdf/robot_body_roll.urdf"/>
+  <!-- <param name="robot_description" textfile="$(find cmg_robot_description)/urdf/robot.sdf"/> -->
+
+  <!-- Run a python script to the send a service call to gazebo_ros to spawn a URDF robot -->
+  <node name="urdf_spawner" 
+        pkg="gazebo_ros" 
+        type="spawn_model" 
+        args="-urdf -x 0 -y 0 -z 0 -model wheeled_inverted_pendulum -param robot_description"/>
+
+  <!-- Run controller utils -->
+  <rosparam file="$(find cmg_robot_gazebo)/config/controller_roll.yaml" command="load"/>
+
+
+  <!-- ros_control robotis manipulator launch file -->
+  <!-- load the controllers -->
+  <node name="controller_spawner" 
+        pkg="controller_manager"  
+        type="spawner" 
+        respawn="false"
+        output="screen" 
+        ns="/wheeled_inverted_pendulum" 
+        args="hip_roll ankle_roll wheel right_gimbal right_flywheel left_flywheel"/>
+  <!-- joint_state_controller hip_roll hip_pitch knee ankle_pitch ankle_roll ankle_yaw wheel left_gimbal right_gimbal right_flywheel left_flywheel  -->
+  <!-- hip_roll hip_pitch knee ankle_pitch ankle_roll ankle_yaw wheel left_gimbal right_gimbal right_flywheel left_fly -->
+  <!--node name="omx_gripper_sub_publisher" pkg="omni_manipulator_gazebo" type="omx_gripper_sub_publisher" output="screen"/!-->
+  
+  <!-- convert joint states to TF transforms for rviz, etc -->
+  <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="false" output="screen"> 
+     <remap from="/joint_states" to="/joint_states" />
+  </node> 
+
+  <!-- Publish joint values -->
+  <!-- <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" /> -->
+  
+  <!-- Joystick node -->
+  <!-- <node name="joy" pkg="joy" type="joy_node"/> -->
+
+</launch>

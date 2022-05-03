@@ -1,0 +1,77 @@
+wheeled_inverted_pendulum:
+  #Publish all joint states -----------------------------------
+  joint_state_controller:
+    type: joint_state_controller/JointStateController
+    publish_rate: 100
+
+  
+
+  gazebo_ros_control:
+    pid_gains:
+      Left_flywheel_joint:  {p: 1.0, i: 0.0, d: 0.0}
+      Right_flywheel_joint: {p: 1.0, i: 0.0, d: 0.0}
+      Left_gimbal_joint:    {p: 100, i: 0, d: 0}
+      Right_gimbal_joint:   {p: 0.1, i: 0, d: 0}
+      wheel_joint:          {p: 100.0, i: 16, d: 20}
+
+      hip_roll_joint:       {p: 1500, i: 15, d: 50}
+      # hip_pitch_joint:      {p: 2000, i: 15, d: 0.5}
+      # knee_joint:           {p: 2000, i: 15, d: 0.5}
+      # ankle_pitch_joint:    {p: 2000, i: 15, d: 0.5}
+      ankle_roll_joint:     {p: 1500, i: 15, d: 50}
+      # ankle_yaw_joint:      {p: 1500, i: 10, d: 50}
+
+
+  hip_roll:
+    type: position_controllers/JointPositionController
+    joint: hip_roll_joint
+  
+  # hip_pitch:
+  #   type: position_controllers/JointPositionController
+  #   joint: hip_pitch_joint
+  
+  # knee:
+  #   type: position_controllers/JointPositionController
+  #   joint: knee_joint
+
+  # ankle_pitch:
+  #   type: position_controllers/JointPositionController
+  #   joint: ankle_pitch_joint
+
+  ankle_roll:
+    type: position_controllers/JointPositionController
+    joint: ankle_roll_joint
+  
+  # ankle_yaw:
+  #   type: position_controllers/JointPositionController
+  #   joint: ankle_yaw_joint
+
+
+  # left_gimbal:
+  #   type: effort_controllers/JointEffortController
+  #   joint: Left_gimbal_joint
+    # pid: {p: 0.5, i: 0, d: 0}
+
+  left_flywheel:
+    type: velocity_controllers/JointVelocityController
+    joint: Left_flywheel_joint
+    # pid: {p: 10.0, i: 0, d: 1.0}
+
+  right_gimbal:
+    type: effort_controllers/JointEffortController
+    joint: Right_gimbal_joint
+    # pid: {p: 0.5, i: 0, d: 0} 
+
+  right_flywheel:
+    type: velocity_controllers/JointVelocityController
+    joint: Right_flywheel_joint
+    # pid: {p: 10.0, i: 0, d: 1.0}
+
+  wheel:
+    type: effort_controllers/JointEffortController
+    joint: wheel_joint
+    # pid: {p: 0.5, i: 0, d: 0}
+    
+# position_controllers/JointPositionController
+# effort_controllers/JointEffortController
+# velocity_controllers/JointVelocityController
