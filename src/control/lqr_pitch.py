@@ -12,9 +12,10 @@ from geometry_msgs.msg import *
 from sensor_msgs.msg import Imu
 import pylab as pl
 import control
-from EoM import *
 from sympy.physics.mechanics import *
 from numpy.linalg import matrix_rank, eig
+import matplotlib.pyplot as plt
+
 
 
 def gazebo_setting():
@@ -114,34 +115,33 @@ def theta_target(hip_deg):
     
     return theta_target
 
-def roll_joint_pos(ankle_deg_last, ankle_deg_now, hip_deg_last, hip_deg_now):
+# def roll_joint_pos(ankle_deg_last, ankle_deg_now, hip_deg_last, hip_deg_now):
     
-    theta_last = theta_target_roll(ankle_deg_last, hip_deg_last)
-    theta_now = theta_target_roll(ankle_deg_now, hip_deg_now)
+#     theta_last = theta_target_roll(ankle_deg_last, hip_deg_last)
+#     theta_now = theta_target_roll(ankle_deg_now, hip_deg_now)
 
-    t, traj = Trapezoidal_Traj_Gen_Given_Amax_and_T(0.008,200,0.01)
-    ankle_traj = Path_Gen(theta_last[0], theta_now[0], traj[:,0])
-    hip_traj = Path_Gen(theta_last[1], theta_now[1], traj[:,0])
+#     t, traj = Trapezoidal_Traj_Gen_Given_Amax_and_T(0.008,200,0.01)
+#     ankle_traj = Path_Gen(theta_last[0], theta_now[0], traj[:,0])
+#     hip_traj = Path_Gen(theta_last[1], theta_now[1], traj[:,0])
     
-    for i in range(len(t)):
-        pub_ankle.publish(ankle_traj[i])
-        pub_hip.publish(hip_traj[i])
+#     for i in range(len(t)):
+#         pub_ankle.publish(ankle_traj[i])
+#         pub_hip.publish(hip_traj[i])
         
-def hip_joint_pos(hip_deg_1, hip_deg_2):
+# def hip_joint_pos(hip_deg_1, hip_deg_2):
     
-    theta = np.array([hip_deg_1, hip_deg_2])
+#     theta = np.array([hip_deg_1, hip_deg_2])
     
-    t, traj = Trapezoidal_Traj_Gen_Given_Amax_and_T(0.008,200,0.01)
-    hip_traj = Path_Gen(theta[0], theta[1], traj[:,0])
+#     t, traj = Trapezoidal_Traj_Gen_Given_Amax_and_T(0.008,200,0.01)
+#     hip_traj = Path_Gen(theta[0], theta[1], traj[:,0])
     
-    for i in range(len(t)):
-        pub_hip.publish(hip_traj[i])
+#     for i in range(len(t)):
+#         pub_hip.publish(hip_traj[i])
         
 def get_link_state(link_name_main, reference_frame):
+    
     get_state = rospy.ServiceProxy("/gazebo/get_link_state", GetLinkState)
     
-    # reference_frame = gimbal_name
-    # gimbal_state = get_state(link_name = gimbal_name)
     link_state = get_state(link_name= link_name_main, reference_frame = reference_frame)
 
     return link_state
@@ -226,10 +226,24 @@ def get_wheel_vel():
     return wheel_vel_x, wheel_vel_y, wheel_vel_z
 
 def linvel2wheelvel(linvel):
-    wheel_rad = 0.1524/2
+    wheel_rad = 0.138/2
     wheelvel = linvel/wheel_rad
     
     return wheelvel
+
+def print_graph():
+    
+    plt.plot(sec_store, deg_store)
+
+    plt.xlabel('sec[s]')
+    plt.ylabel('tilt angle[deg]')
+    plt.title('Pitch tilt angle')
+    plt.ylim(-2.5,2.5)
+    plt.xlim(0, 15)
+    # plt.legend(loc='upper right')
+    plt.grid(True, axis='y')
+
+    plt.show()
     
 #######################################################################################################
     
@@ -240,22 +254,22 @@ imu_ori_data = [0,0,0]
     
 A = np.array([[0,0,1,0],
               [0,0,0,1],
-              [0,-106.14152356,0,0],
-              [0,11.57168299,0,0]])
+              [0,-435.01156202,0,0],
+              [0,46.34116633,0,0]])
 
-B = np.array([[0],[0],[12.48858057],[-0.65030146]])
+B = np.array([[0],[0],[35.73360799],[-2.93867428]])
 
 C = np.eye(4)
 
 D = np.array([[0], [0], [0], [0]])
 
 # q = [phi, theta, phi_dot, theta_dot]
-Q = sp.Matrix([ [0.1,    0,    0,    0],
-                [0,    2000,    0,    0],
-                [0,    0,    0.01,    0],
-                [0,    0,    0,    20]])
+Q = sp.Matrix([ [0.3,    0,    0,    0],
+                [0,    0.01,    0,    0],
+                [0,    0,    0.1,    0],
+                [0,    0,    0,    0.01]])
 
-R = sp.Matrix([ [2] ])
+R = sp.Matrix([ [1] ])
 
 # Q = sp.Matrix([ [1,    0,    0,    0],
 #                 [0,    2,    0,    0],
@@ -288,9 +302,10 @@ body_name = 'wheeled_inverted_pendulum'
 body_name_list = [body_name]
 
 print('K: ', K)
-loof_cnt = 0
+loop_cnt = 0
 
-
+deg_store = []
+sec_store = []
 
 ############################################################################################
  
@@ -298,25 +313,31 @@ if __name__ == '__main__':
     try:                
         
         rospy.wait_for_service('gazebo/get_model_state')
-        rospy.init_node('CMG_inverted_pendulum', anonymous=True) 
+        rospy.init_node('Pitch_Controller', anonymous=False) 
         
         pub_w = rospy.Publisher('/wheeled_inverted_pendulum/wheel/command', Float64, queue_size=100)
-        pub_hip = rospy.Publisher('/wheeled_inverted_pendulum/hip_roll/command', Float64, queue_size=100)
-        pub_ankle = rospy.Publisher('/wheeled_inverted_pendulum/ankle_roll/command', Float64, queue_size=100)
+        pub_ank = rospy.Publisher('/wheeled_inverted_pendulum/ankle_pitch/command', Float64, queue_size=100)
+        pub_knee = rospy.Publisher('/wheeled_inverted_pendulum/knee/command', Float64, queue_size=100)
+        pub_hip = rospy.Publisher('/wheeled_inverted_pendulum/hip_pitch/command', Float64, queue_size=100)
         
         rate = rospy.Rate(100)
-        
         gazebo_setting()
-        # pub_ankle.publish(0)
-        # pub_hip.publish(0)
-        # roll_joint_pos(0, -5, 0, 5)
+
         
-        cur_time = time.time()             
+        cur_time = time.time()    
+        sec_time = time.time()           
+         
         while True:
 
             last_time = cur_time
             cur_time = time.time()
-            dt = cur_time - last_time
+            sec_cur_time = time.time()
+            dt = cur_time - last_time 
+            sec =  sec_cur_time - sec_time
+            
+            pub_ank.publish(0)
+            pub_knee.publish(0)
+            pub_hip.publish(0)
             
             wheel_ori_x, wheel_ori_y, wheel_ori_z = get_wheel_ori()
             wheel_vel_x, wheel_vel_y, wheel_vel_z = get_wheel_vel()
@@ -326,35 +347,55 @@ if __name__ == '__main__':
             # link_vel_x, link_vel_y, link_vel_z = get_link_vel(link_name_list[2], 'world')
 
             x0 = np.array([wheel_ori_y,body_ori_y,wheel_vel_y,body_vel_y])
-            wheel_vel = linvel2wheelvel(0)
+            # wheel_vel = linvel2wheelvel(0)
             
-            xd = np.array([0,0,wheel_vel,0])
-            
-            
-            
-            u = -K @ ( x0 - xd)
-            # print(u)
+            # xd = np.array([0,0,wheel_vel,0])
+
+            u = -K @ ( x0 )
             pub_w.publish(u)
+
+            deg_store.append(body_ori_y*RAD2DEG)
+            sec_store.append(sec)
             
+            # if loop_cnt <200:
+            #     wheel_vel = linvel2wheelvel(0.5)
             
+            #     xd = np.array([0,0,wheel_vel,0])
+
+            #     u = -K @ ( x0 - xd)
+
+            #     pub_w.publish(u)
+                
+            # elif loop_cnt >= 200:
+            #     wheel_vel = linvel2wheelvel(1)
             
+            #     xd = np.array([0,0,wheel_vel,0])
+
+            #     u = -K @ ( x0 - xd)
+
+            #     pub_w.publish(u)
             
-            # print('x0 : ', x0)
-            # print(xd)
-            # print('u : ', u)
+            # print('Wheel_velocity  (rad/s): ', wheel_vel_y)
+            # print('Pitch             (deg): ', body_ori_y*RAD2DEG)
             # print('====================================') 
-            if loof_cnt % 10 == 0:
+            
+            if loop_cnt % 10 == 0:
                 print('Wheel_velocity  (rad/s): ', wheel_vel_y)
                 print('Pitch             (deg): ', body_ori_y*RAD2DEG)
 
                 print('====================================')  
             
             
-            loof_cnt= loof_cnt + 1
+            loop_cnt= loop_cnt + 1
 
             # print('dt: ', dt)
 
             rate.sleep()
+            
+            # if loop_cnt == 1500:
+            #     print_graph()
+                
+                
 
     except rospy.ROSInterruptException:
         pass
